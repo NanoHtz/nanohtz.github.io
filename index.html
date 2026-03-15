@@ -2,32 +2,689 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Mi Hub de Ciberseguridad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CiberHub — Seguridad en Español</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #050a05;
+      --bg2:       #0a110a;
+      --green:     #00ff41;
+      --green-dim: #00cc33;
+      --green-glow:#00ff4133;
+      --cyan:      #00e5ff;
+      --red:       #ff003c;
+      --text:      #b0c4b0;
+      --text-dim:  #4a6a4a;
+      --mono:      'Share Tech Mono', monospace;
+      --sans:      'Rajdhani', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      overflow-x: hidden;
+      cursor: crosshair;
+    }
+
+    /* ── SCANLINES overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── CANVAS background ── */
+    #matrix-bg {
+      position: fixed; inset: 0;
+      opacity: 0.07;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2.5rem;
+      height: 56px;
+      background: rgba(5,10,5,0.85);
+      border-bottom: 1px solid var(--text-dim);
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      color: var(--green);
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 12px var(--green);
+    }
+
+    .nav-logo span { color: var(--text-dim); }
+
+    nav ul {
+      list-style: none;
+      display: flex; gap: 2rem;
+    }
+
+    nav ul a {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color .2s, text-shadow .2s;
+    }
+
+    nav ul a:hover {
+      color: var(--green);
+      text-shadow: 0 0 8px var(--green);
+    }
+
+    /* ── HERO ── */
+    #hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+    }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--green-dim);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards .3s;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: clamp(2.2rem, 7vw, 5rem);
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green), 0 0 60px var(--green-glow);
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards .5s;
+    }
+
+    h1 .glitch {
+      position: relative;
+      display: inline-block;
+    }
+
+    h1 .glitch::before,
+    h1 .glitch::after {
+      content: attr(data-text);
+      position: absolute; inset: 0;
+      color: var(--green);
+    }
+
+    h1 .glitch::before {
+      text-shadow: -2px 0 var(--red);
+      animation: glitch1 4s infinite steps(1);
+    }
+
+    h1 .glitch::after {
+      text-shadow: 2px 0 var(--cyan);
+      animation: glitch2 4s infinite steps(1);
+    }
+
+    .hero-sub {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: var(--text);
+      margin-top: 1.5rem;
+      max-width: 560px;
+      line-height: 1.6;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards .7s;
+    }
+
+    .hero-sub strong { color: var(--cyan); font-weight: 600; }
+
+    .hero-cta {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      margin-top: 2.5rem;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards .9s;
+    }
+
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: .7rem 1.8rem;
+      border: 1px solid var(--green);
+      color: var(--green);
+      background: transparent;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .2s, box-shadow .2s, color .2s;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    }
+
+    .btn:hover {
+      background: var(--green);
+      color: var(--bg);
+      box-shadow: 0 0 20px var(--green);
+    }
+
+    .btn.secondary {
+      border-color: var(--text-dim);
+      color: var(--text-dim);
+    }
+
+    .btn.secondary:hover {
+      background: var(--text-dim);
+      color: var(--bg);
+      box-shadow: none;
+    }
+
+    .hero-stats {
+      display: flex; gap: 3rem; flex-wrap: wrap; justify-content: center;
+      margin-top: 4rem;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards 1.1s;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-n {
+      font-family: var(--mono);
+      font-size: 2rem;
+      color: var(--green);
+      text-shadow: 0 0 10px var(--green-glow);
+    }
+
+    .stat-l {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: .2rem;
+    }
+
+    /* ── TERMINAL prompt ── */
+    .terminal-line {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-top: 3rem;
+      opacity: 0;
+      animation: fadeUp .6s ease forwards 1.3s;
+    }
+
+    .terminal-line .prompt { color: var(--green); }
+    .terminal-line .cursor {
+      display: inline-block;
+      width: 8px; height: 14px;
+      background: var(--green);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+
+    /* ── SECTION ── */
+    section {
+      position: relative; z-index: 1;
+      padding: 5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.25em;
+      color: var(--green-dim);
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+
+    .section-title {
+      font-family: var(--sans);
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      color: #e0ffe0;
+      margin-bottom: 3rem;
+    }
+
+    .section-title span { color: var(--green); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      position: relative; z-index: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--text-dim), transparent);
+      margin: 0 2rem;
+    }
+
+    /* ── CARDS ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--text-dim);
+      padding: 1.8rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .3s, transform .3s;
+      cursor: default;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 3px; height: 0;
+      background: var(--green);
+      transition: height .3s;
+    }
+
+    .card:hover {
+      border-color: var(--green);
+      transform: translateY(-4px);
+    }
+
+    .card:hover::before { height: 100%; }
+
+    .card-icon {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      color: var(--green);
+      margin-bottom: .6rem;
+      letter-spacing: 0.05em;
+    }
+
+    .card-text {
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .card-tag {
+      display: inline-block;
+      margin-top: 1rem;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      padding: .2rem .6rem;
+      border: 1px solid var(--text-dim);
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* ── TOOLS grid ── */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .tool-item {
+      background: var(--bg2);
+      border: 1px solid var(--text-dim);
+      padding: 1rem 1.2rem;
+      display: flex; align-items: center; gap: .75rem;
+      transition: border-color .2s, background .2s;
+      cursor: pointer;
+    }
+
+    .tool-item:hover {
+      border-color: var(--cyan);
+      background: rgba(0,229,255,0.04);
+    }
+
+    .tool-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    .tool-item:hover .tool-dot {
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    .tool-name {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+
+    /* ── NEWSLETTER ── */
+    .newsletter {
+      background: var(--bg2);
+      border: 1px solid var(--text-dim);
+      padding: 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .newsletter::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, var(--green-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .newsletter h2 {
+      font-family: var(--mono);
+      color: var(--green);
+      font-size: 1.3rem;
+      margin-bottom: .5rem;
+    }
+
+    .newsletter p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .nl-form {
+      display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+    }
+
+    .nl-input {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      background: var(--bg);
+      border: 1px solid var(--text-dim);
+      color: var(--text);
+      padding: .65rem 1.2rem;
+      width: 280px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .nl-input:focus { border-color: var(--green); }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--text-dim);
+      padding: 2rem;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    footer span { color: var(--green); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @keyframes glitch1 {
+      0%,90%,100% { clip-path: none; transform: none; }
+      92%          { clip-path: inset(20% 0 60% 0); transform: translate(-3px); }
+      94%          { clip-path: inset(70% 0 10% 0); transform: translate(3px); }
+      96%          { clip-path: inset(40% 0 40% 0); transform: translate(-2px); }
+    }
+
+    @keyframes glitch2 {
+      0%,90%,100% { clip-path: none; transform: none; }
+      93%          { clip-path: inset(50% 0 30% 0); transform: translate(3px); }
+      95%          { clip-path: inset(10% 0 80% 0); transform: translate(-3px); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav ul { display: none; }
+      .hero-stats { gap: 1.5rem; }
+      .newsletter { padding: 2rem 1.5rem; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Bienvenido al Hub de Ciberseguridad</h1>
-  <p>Próximamente...</p>
+
+<canvas id="matrix-bg"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo"><span>//</span> CIBERHUB<span>.es</span></div>
+  <ul>
+    <li><a href="#categorias">Categorías</a></li>
+    <li><a href="#herramientas">Herramientas</a></li>
+    <li><a href="#recursos">Recursos</a></li>
+    <li><a href="#newsletter">Newsletter</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <p class="hero-tag">// el hub de ciberseguridad en español</p>
+  <h1>
+    <span class="glitch" data-text="CIBER">CIBER</span>HUB
+  </h1>
+  <p class="hero-sub">
+    Herramientas, recursos y guías de <strong>ciberseguridad</strong>
+    en tu idioma. Desde principiante hasta profesional.
+  </p>
+  <div class="hero-cta">
+    <a href="#herramientas" class="btn">Explorar herramientas</a>
+    <a href="#categorias" class="btn secondary">Ver categorías</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-n">50+</div>
+      <div class="stat-l">Herramientas</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">10</div>
+      <div class="stat-l">Categorías</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">100%</div>
+      <div class="stat-l">En Español</div>
+    </div>
+  </div>
+  <div class="terminal-line">
+    <span class="prompt">root@ciberhub:~$</span> inicio --modo explorador<span class="cursor"></span>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CATEGORÍAS -->
+<section id="categorias">
+  <p class="section-header">// 01 — categorías</p>
+  <h2 class="section-title">Explora por <span>área</span></h2>
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">🔍</div>
+      <div class="card-title">OSINT</div>
+      <p class="card-text">Inteligencia en fuentes abiertas. Aprende a recopilar información de forma legal y eficaz.</p>
+      <span class="card-tag">Reconocimiento</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🛡️</div>
+      <div class="card-title">Pentesting</div>
+      <p class="card-text">Herramientas y técnicas para pruebas de penetración en entornos controlados.</p>
+      <span class="card-tag">Ofensivo</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔐</div>
+      <div class="card-title">Criptografía</div>
+      <p class="card-text">Fundamentos y herramientas de cifrado, hashing y comunicaciones seguras.</p>
+      <span class="card-tag">Defensivo</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <div class="card-title">Seguridad Web</div>
+      <p class="card-text">OWASP Top 10, XSS, SQLi, CSRF y mucho más. Aprende a atacar y defender.</p>
+      <span class="card-tag">Web</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <div class="card-title">Ingeniería Social</div>
+      <p class="card-text">Phishing, pretexting y técnicas de manipulación. Entiende el eslabón humano.</p>
+      <span class="card-tag">Humano</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🖥️</div>
+      <div class="card-title">Forense Digital</div>
+      <p class="card-text">Análisis de evidencias digitales, recuperación de datos y análisis de malware.</p>
+      <span class="card-tag">Análisis</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HERRAMIENTAS -->
+<section id="herramientas">
+  <p class="section-header">// 02 — herramientas</p>
+  <h2 class="section-title">Arsenal <span>esencial</span></h2>
+  <div class="tools-grid">
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Nmap</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Metasploit</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Burp Suite</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Wireshark</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Maltego</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Nikto</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">John the Ripper</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Hashcat</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">sqlmap</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Aircrack-ng</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">theHarvester</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Gobuster</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Hydra</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Shodan</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">OWASP ZAP</span></div>
+    <div class="tool-item"><div class="tool-dot"></div><span class="tool-name">Volatility</span></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- RECURSOS -->
+<section id="recursos">
+  <p class="section-header">// 03 — recursos</p>
+  <h2 class="section-title">Aprende y <span>practica</span></h2>
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">🎯</div>
+      <div class="card-title">CTF — Capture The Flag</div>
+      <p class="card-text">Plataformas para practicar hacking legal: HackTheBox, TryHackMe, PicoCTF y más.</p>
+      <span class="card-tag">Práctica</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">📚</div>
+      <div class="card-title">Guías y Cheatsheets</div>
+      <p class="card-text">Referencias rápidas, comandos esenciales y metodologías explicadas en español.</p>
+      <span class="card-tag">Referencia</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">📰</div>
+      <div class="card-title">Noticias y CVEs</div>
+      <p class="card-text">Vulnerabilidades recientes, exploits publicados y noticias del sector en tiempo real.</p>
+      <span class="card-tag">Actualidad</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- NEWSLETTER -->
+<section id="newsletter">
+  <div class="newsletter">
+    <h2>// MANTENTE AL DÍA</h2>
+    <p>Recibe lo mejor de ciberseguridad en español directamente en tu correo</p>
+    <div class="nl-form">
+      <input class="nl-input" type="email" placeholder="tu@email.com">
+      <a href="#" class="btn">Suscribirse</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p><span>CIBERHUB</span> — Seguridad en Español &nbsp;|&nbsp; Construido con ❤️ y mucho café &nbsp;|&nbsp; <span>2025</span></p>
+  <p style="margin-top:.5rem;">// uso ético y responsable de la información</p>
+</footer>
+
+<!-- MATRIX RAIN -->
+<script>
+  const canvas = document.getElementById('matrix-bg');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ01アBCDEF<>{}[]|/\\';
+  const fontSize = 13;
+  let columns = Math.floor(canvas.width / fontSize);
+  let drops = Array(columns).fill(1);
+
+  function draw() {
+    ctx.fillStyle = 'rgba(5,10,5,0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = fontSize + 'px Share Tech Mono, monospace';
+    for (let i = 0; i < drops.length; i++) {
+      const text = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+
+  setInterval(draw, 50);
+  window.addEventListener('resize', () => {
+    columns = Math.floor(canvas.width / fontSize);
+    drops = Array(columns).fill(1);
+  });
+</script>
+
 </body>
 </html>
-```
-
-- Abajo click **"Commit changes"**
-
----
-
-**5. Accede a tu web**
-
-Espera 1-2 minutos y entra a:
-```
-https://tuusuario.github.io
-```
-
-¡Ya tienes tu web publicada! 🎉
-
----
-
-### Flujo de trabajo desde aquí
-
-Una vez funcione, lo normal es trabajar así:
-```
-Editas en tu PC  →  git push  →  GitHub Pages se actualiza solo
