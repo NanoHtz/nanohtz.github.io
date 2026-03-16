@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<!--
+  herramientas.html — Página de herramientas de CiberHub
+  Árbol interactivo con D3.js. Click en nodo = expandir/colapsar.
+  Para añadir herramientas: edita el objeto `treeData` en el <script>.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Herramientas — CiberHub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── VARIABLES — mismas que index.html para coherencia ── */
+    :root {
+      --bg:        #050a05;
+      --bg2:       #0a110a;
+      --green:     #00ff41;
+      --green-dim: #00cc33;
+      --green-glow:#00ff4133;
+      --cyan:      #00e5ff;
+      --red:       #ff003c;
+      --text:      #b0c4b0;
+      --text-dim:  #4a6a4a;
+      --mono:      'Share Tech Mono', monospace;
+      --sans:      'Rajdhani', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-x: hidden;
+      cursor: crosshair;
+      min-height: 100vh;
+    }
+
+    /* Scanlines igual que index.html */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── NAV — igual que index.html ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2.5rem;
+      height: 56px;
+      background: rgba(5,10,5,0.92);
+      border-bottom: 1px solid var(--text-dim);
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      color: var(--green);
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 12px var(--green);
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--text-dim); }
+
+    nav ul { list-style: none; display: flex; gap: 2rem; }
+    nav ul a {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color .2s, text-shadow .2s;
+    }
+    nav ul a:hover, nav ul a.active {
+      color: var(--green);
+      text-shadow: 0 0 8px var(--green);
+    }
+
+    /* ── HEADER de página ── */
+    .page-header {
+      padding: 5.5rem 2.5rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .page-header p {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--green-dim);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: .4rem;
+    }
+
+    .page-header h1 {
+      font-family: var(--sans);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      color: #e0ffe0;
+      opacity: 1;
+      animation: none;
+      text-shadow: none;
+    }
+
+    .page-header h1 span { color: var(--green); }
+
+    .page-header .hint {
+      margin-top: .6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    /* ── LEYENDA de categorías ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem 1.5rem;
+      padding: 0 2.5rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── CONTENEDOR del árbol ── */
+    #tree-container {
+      width: 100%;
+      /* Altura dinámica: el JS la ajusta */
+      overflow: auto;
+      padding: 0 1rem 3rem;
+      position: relative;
+    }
+
+    #tree-svg {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── ESTILOS SVG del árbol ── */
+
+    /* Links (líneas entre nodos) */
+    .link {
+      fill: none;
+      stroke: var(--text-dim);
+      stroke-width: 1px;
+      opacity: 0.5;
+    }
+
+    /* Nodo raíz */
+    .node-root circle {
+      fill: var(--green);
+      stroke: var(--green);
+      filter: drop-shadow(0 0 8px var(--green));
+    }
+    .node-root text {
+      fill: var(--green);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+    }
+
+    /* Nodos de categoría (nivel 1) */
+    .node-cat circle {
+      stroke-width: 1.5px;
+    }
+    .node-cat text {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Nodos de subcategoría (nivel 2) */
+    .node-sub circle {
+      stroke-width: 1px;
+    }
+    .node-sub text {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    /* Nodos hoja — herramientas concretas (nivel 3+) */
+    .node-leaf circle {
+      fill: var(--bg2) !important;
+      stroke-width: 1px;
+    }
+    .node-leaf text {
+      font-family: var(--sans);
+      font-size: 10.5px;
+      fill: var(--text) !important;
+    }
+
+    /* Tooltip */
+    #tooltip {
+      position: fixed;
+      background: var(--bg2);
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: .4rem .8rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+      z-index: 200;
+      letter-spacing: 0.05em;
+      box-shadow: 0 0 12px var(--green-glow);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--text-dim);
+      padding: 1.5rem;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+    footer span { color: var(--green); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="nav-logo"><span>//</span> CIBERHUB<span>.es</span></a>
+  <ul>
+    <li><a href="herramientas.html" class="active">Herramientas</a></li>
+  </ul>
+</nav>
+
+<!-- CABECERA -->
+<div class="page-header">
+  <p>// 01 — herramientas</p>
+  <h1>Arsenal <span>interactivo</span></h1>
+  <p class="hint">// click en cualquier nodo para expandir o colapsar sus ramas</p>
+</div>
+
+<!-- LEYENDA -->
+<div class="legend" id="legend"></div>
+
+<!-- ÁRBOL -->
+<div id="tree-container">
+  <svg id="tree-svg"></svg>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- FOOTER -->
+<footer>
+  <p><span>CIBERHUB</span> — Seguridad en Español &nbsp;|&nbsp; <span>2025</span></p>
+</footer>
+
+<!-- D3.js desde CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  DATOS DEL ÁRBOL
+//  Para añadir una categoría: añade un objeto al array "children"
+//  de la raíz con nombre y sus propios hijos.
+//  Para añadir una herramienta: añade { name: "Nombre" } al array
+//  "children" de la subcategoría correspondiente.
+//  El campo "url" es opcional: si lo añades, el tooltip lo mostrará.
+// ═══════════════════════════════════════════════════════════════
+
+const treeData = {
+  name: "CiberHub",
+  children: [
+
+    // ── CATEGORÍA: OSINT ──────────────────────────────────────
+    {
+      name: "OSINT",
+      color: "#00ff41",   // Verde — color de esta categoría
+      children: [
+        {
+          name: "Búsqueda de personas",
+          children: [
+            { name: "Spokeo" },
+            { name: "Pipl" },
+            { name: "WhitePages" },
+            { name: "TruePeopleSearch" }
+          ]
+        },
+        {
+          name: "Redes sociales",
+          children: [
+            { name: "Sherlock" },
+            { name: "Social Searcher" },
+            { name: "Maltego" }
+          ]
+        },
+        {
+          name: "Dominios & DNS",
+          children: [
+            { name: "Whois" },
+            { name: "SecurityTrails" },
+            { name: "DNS Dumpster" },
+            { name: "Shodan" }
+          ]
+        },
+        {
+          name: "Imágenes",
+          children: [
+            { name: "Google Images" },
+            { name: "TinEye" },
+            { name: "Yandex Images" }
+          ]
+        }
+      ]
+    },
+
+    // ── CATEGORÍA: PENTESTING ─────────────────────────────────
+    {
+      name: "Pentesting",
+      color: "#00e5ff",   // Cian
+      children: [
+        {
+          name: "Reconocimiento",
+          children: [
+            { name: "Nmap" },
+            { name: "theHarvester" },
+            { name: "Recon-ng" },
+            { name: "Gobuster" }
+          ]
+        },
+        {
+          name: "Explotación",
+          children: [
+            { name: "Metasploit" },
+            { name: "SQLmap" },
+            { name: "BeEF" }
+          ]
+        },
+        {
+          name: "Post-explotación",
+          children: [
+            { name: "Mimikatz" },
+            { name: "BloodHound" },
+            { name: "Empire" }
+          ]
+        }
+      ]
+    },
+
+    // ── CATEGORÍA: SEGURIDAD WEB ──────────────────────────────
+    {
+      name: "Seguridad Web",
+      color: "#ffaa00",   // Naranja
+      children: [
+        {
+          name: "Análisis",
+          children: [
+            { name: "Burp Suite" },
+            { name: "OWASP ZAP" },
+            { name: "Nikto" },
+            { name: "Wapiti" }
+          ]
+        },
+        {
+          name: "Fuzzing",
+          children: [
+            { name: "ffuf" },
+            { name: "Dirbuster" },
+            { name: "Wfuzz" }
+          ]
+        }
+      ]
+    },
+
+    // ── CATEGORÍA: FORENSE DIGITAL ────────────────────────────
+    {
+      name: "Forense",
+      color: "#ff4081",   // Rosa/rojo
+      children: [
+        {
+          name: "Memoria",
+          children: [
+            { name: "Volatility" },
+            { name: "Rekall" }
+          ]
+        },
+        {
+          name: "Disco",
+          children: [
+            { name: "Autopsy" },
+            { name: "FTK Imager" },
+            { name: "Sleuth Kit" }
+          ]
+        },
+        {
+          name: "Red",
+          children: [
+            { name: "Wireshark" },
+            { name: "NetworkMiner" },
+            { name: "tcpdump" }
+          ]
+        }
+      ]
+    }
+
+    // ── PARA AÑADIR UNA CATEGORÍA NUEVA, copia este bloque: ──
+    // {
+    //   name: "NombreCategoria",
+    //   color: "#COLOR_HEX",
+    //   children: [
+    //     {
+    //       name: "Subcategoria",
+    //       children: [
+    //         { name: "Herramienta 1" },
+    //         { name: "Herramienta 2" }
+    //       ]
+    //     }
+    //   ]
+    // },
+
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN DEL ÁRBOL D3
+// ═══════════════════════════════════════════════════════════════
+
+const nodeRadius  = 6;    // Radio de los círculos de nodo
+const nodeSpacing = 22;   // Espacio vertical entre nodos (px)
+const levelGap    = 220;  // Espacio horizontal entre niveles (px)
+
+// Colores CSS
+const CSS = {
+  bg:      '#050a05',
+  bg2:     '#0a110a',
+  green:   '#00ff41',
+  cyan:    '#00e5ff',
+  text:    '#b0c4b0',
+  textDim: '#4a6a4a'
+};
+
+// Construye la leyenda de categorías
+const legend = document.getElementById('legend');
+treeData.children.forEach(cat => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `
+    <div class="legend-dot" style="background:${cat.color};box-shadow:0 0 6px ${cat.color}88"></div>
+    <span>${cat.name}</span>
+  `;
+  legend.appendChild(item);
+});
+
+// ── Setup SVG ──
+const svg = d3.select('#tree-svg');
+const g   = svg.append('g'); // Grupo principal (permite zoom/pan futuro)
+
+const tooltip = document.getElementById('tooltip');
+
+// ── Función que asigna color a cada nodo según su ancestro de categoría ──
+function getColor(d) {
+  if (d.depth === 0) return CSS.green;          // Raíz
+  // Sube hasta nivel 1 para obtener el color de la categoría
+  let node = d;
+  while (node.depth > 1) node = node.parent;
+  return node.data.color || CSS.green;
+}
+
+// ── Función principal: renderiza el árbol ──
+function render(root) {
+  const container = document.getElementById('tree-container');
+
+  // Número de hojas visibles → determina la altura necesaria
+  const leaves  = root.leaves();
+  const minH    = Math.max(window.innerHeight - 200, leaves.length * nodeSpacing + 120);
+  const width   = Math.max(window.innerWidth - 40, (root.height + 1) * levelGap + 300);
+
+  svg.attr('width', width).attr('height', minH);
+
+  // Layout de árbol horizontal centrado verticalmente
+  const treeLayout = d3.tree().size([minH - 80, width - 280]);
+  treeLayout(root);
+
+  // Offset horizontal fijo para que CiberHub no quede pegado al borde
+  const offsetX = 80;
+  const offsetY = 40;
+
+  // ── LINKS (líneas curvas entre nodos) ──
+  const linkSel = g.selectAll('.link')
+    .data(root.links(), d => d.target.data._uid);
+
+  linkSel.enter().append('path')
+    .attr('class', 'link')
+    .merge(linkSel)
+    .transition().duration(400)
+    .attr('d', d3.linkHorizontal()
+      .x(d => d.y + offsetX)
+      .y(d => d.x + offsetY)
+    )
+    .attr('stroke', d => getColor(d.target) + '55');
+
+  linkSel.exit().remove();
+
+  // ── NODOS ──
+  const nodeSel = g.selectAll('.node')
+    .data(root.descendants(), d => d.data._uid);
+
+  const nodeEnter = nodeSel.enter().append('g')
+    .attr('class', d => {
+      if (d.depth === 0) return 'node node-root';
+      if (d.depth === 1) return 'node node-cat';
+      if (d.depth === 2) return 'node node-sub';
+      return 'node node-leaf';
+    })
+    .attr('transform', d => `translate(${d.y + offsetX},${d.x + offsetY})`)
+    .style('cursor', d => d.data.children || d.data._children ? 'pointer' : 'default');
+
+  // Círculo del nodo
+  nodeEnter.append('circle')
+    .attr('r', d => d.depth === 0 ? 9 : d.depth === 1 ? 7 : 5)
+    .attr('fill', d => {
+      if (d.depth === 0) return CSS.green;
+      if (!d.data.children && !d.data._children) return CSS.bg2;
+      return CSS.bg2;
+    })
+    .attr('stroke', d => getColor(d))
+    .style('filter', d => d.depth <= 1 ? `drop-shadow(0 0 5px ${getColor(d)}88)` : 'none');
+
+  // Etiqueta de texto
+  nodeEnter.append('text')
+    .attr('dy', '0.35em')
+    .attr('x', d => {
+      // Texto a la derecha del círculo si tiene hijos o es hoja
+      const r = d.depth === 0 ? 9 : d.depth === 1 ? 7 : 5;
+      return d.children ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => d.children ? 'end' : 'start')
+    .text(d => d.data.name)
+    .attr('fill', d => {
+      if (d.depth === 0) return CSS.green;
+      if (d.depth === 1) return getColor(d);
+      if (d.depth === 2) return CSS.text;
+      return CSS.textDim;
+    })
+    .style('font-size', d => d.depth === 0 ? '13px' : d.depth === 1 ? '11.5px' : '10.5px')
+    .style('font-family', d => d.depth <= 1 ? "'Share Tech Mono', monospace" : "'Rajdhani', sans-serif");
+
+  // Actualiza posición de nodos existentes
+  nodeSel.merge(nodeEnter)
+    .transition().duration(400)
+    .attr('transform', d => `translate(${d.y + offsetX},${d.x + offsetY})`);
+
+  nodeSel.exit().remove();
+
+  // ── CLICK: expandir / colapsar (incluye la raíz) ──
+  g.selectAll('.node').on('click', function(event, d) {
+    if (d.data._children) {
+      // Expandir
+      d.data.children  = d.data._children;
+      d.data._children = null;
+    } else if (d.data.children) {
+      // Colapsar
+      d.data._children = d.data.children;
+      d.data.children  = null;
+    } else {
+      return; // Hoja sin hijos, no hace nada
+    }
+    const newRoot = d3.hierarchy(treeData, d => d.children);
+    assignUIDs(newRoot);
+    render(newRoot);
+  });
+
+  // ── TOOLTIP en hover ──
+  g.selectAll('.node')
+    .on('mouseover', function(event, d) {
+      if (d.depth < 2) return;
+      tooltip.style.opacity = '1';
+      tooltip.textContent   = d.data.name;
+    })
+    .on('mousemove', function(event) {
+      tooltip.style.left = (event.clientX + 14) + 'px';
+      tooltip.style.top  = (event.clientY - 28) + 'px';
+    })
+    .on('mouseout', function() {
+      tooltip.style.opacity = '0';
+    });
+}
+
+// ── Asigna IDs únicos a cada nodo (necesario para transiciones D3) ──
+let _uid = 0;
+function assignUIDs(node) {
+  if (!node.data._uid) node.data._uid = ++_uid;
+  if (node.children) node.children.forEach(assignUIDs);
+}
+
+// ── Inicialización ──
+const root = d3.hierarchy(treeData, d => d.children);
+assignUIDs(root);
+
+// Colapsa desde nivel 1: al inicio solo se ve CiberHub.
+// Click en CiberHub → aparecen las categorías.
+// Click en categoría → aparecen sus subcategorías.
+root.descendants().forEach(d => {
+  if (d.depth >= 1 && d.data.children) {
+    d.data._children = d.data.children;
+    d.data.children  = null;
+  }
+});
+
+render(root);
+
+</script>
+</body>
+</html>
